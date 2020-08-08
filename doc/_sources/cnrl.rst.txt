@@ -1,0 +1,7 @@
+cnrl module
+===========
+
+.. automodule:: cnrl
+   :members:
+   :undoc-members:
+   :show-inheritance:

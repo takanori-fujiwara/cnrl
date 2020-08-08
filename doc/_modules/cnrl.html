@@ -1,0 +1,539 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>cnrl &mdash; cnrl  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> cnrl
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cnrl.html">cnrl module</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">cnrl</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="index.html">Module code</a> &raquo;</li>
+        
+      <li>cnrl</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for cnrl</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn</span> <span class="kn">import</span> <span class="n">preprocessing</span>
+
+
+<div class="viewcode-block" id="CNRL"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL">[docs]</a><span class="k">class</span> <span class="nc">CNRL</span><span class="p">():</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    cNRL from Fujiwara et al., 2020 (arXiv:2005.12419).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    nw_learner: network representation learning object</span>
+<span class="sd">        A network representation learning object for the network representation</span>
+<span class="sd">        learning step. nw_learner must have fit, transform, get_feat_defs</span>
+<span class="sd">        methods, such as DeepGL in https://github.com/takanori-fujiwara/deepgl</span>
+<span class="sd">    contrast_learner: contrastive learning object</span>
+<span class="sd">        A contrastive learning object for the contrastive learning step.</span>
+<span class="sd">        contrast_learner must have fit, transform, get_loadings(), and</span>
+<span class="sd">        get_components(), such as cPCA and ccPCA in</span>
+<span class="sd">        https://github.com/takanori-fujiwara/ccpca.</span>
+<span class="sd">    thres_corr_cl_feats: float, optional, (default=0)</span>
+<span class="sd">        Threshold to pruce network features when performing contrastive lerning.</span>
+<span class="sd">        The network features that have higher Pearson correlation coefficient</span>
+<span class="sd">        than thres_corr_cl_feats with another network feature will be pruned.</span>
+<span class="sd">    scaling_cl_inputs: boolean, optional, (default=True)</span>
+<span class="sd">        If true, applying standardization to input matrices of contrast_learner</span>
+<span class="sd">        before performing the contrastive learning step.</span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tg_feat_mat: ndarray, shape(n_nodes, n_network_features)</span>
+<span class="sd">        Tareget network&#39;s feature matrix learned by nw_learner.</span>
+<span class="sd">    bg_feat_mat: ndarray, shape(n_nodes, n_network_features)</span>
+<span class="sd">        Background network&#39;s feature matrix learned by nw_learner.</span>
+<span class="sd">    feat_defs: list of strings</span>
+<span class="sd">        Learned features&#39; definitions by nw_learner</span>
+<span class="sd">    loadings: ndarray, shape(n_network_features, n_components)</span>
+<span class="sd">        Loadings to each component learned by contrast_learner.</span>
+<span class="sd">    components: ndarray, shape(n_network_features, n_components)</span>
+<span class="sd">        Components/projection matrix learned by contrast_learner.</span>
+<span class="sd">    nw_learner: network representation learning object</span>
+<span class="sd">        Access to the input parameter.</span>
+<span class="sd">    contrast_learner: contrastive learning object</span>
+<span class="sd">        Access to the input parameter.</span>
+<span class="sd">    thres_corr_cl_feats: float</span>
+<span class="sd">        Access to the input parameter.</span>
+<span class="sd">    scaling_cl_inputs: boolean</span>
+<span class="sd">        Access to the input parameter.</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # To run this sample analysis, install DeepGL and cPCA first</span>
+<span class="sd">    &gt;&gt;&gt; # 1. DeepGL: https://github.com/takanori-fujiwara/deepgl</span>
+<span class="sd">    &gt;&gt;&gt; # 2. cPCA: https://github.com/takanori-fujiwara/ccpca</span>
+
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; import matplotlib.pyplot as plt</span>
+<span class="sd">    &gt;&gt;&gt; import graph_tool.all as gt</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn import preprocessing</span>
+
+<span class="sd">    &gt;&gt;&gt; from cnrl import CNRL</span>
+<span class="sd">    &gt;&gt;&gt; from deepgl import DeepGL</span>
+<span class="sd">    &gt;&gt;&gt; from cpca import CPCA</span>
+
+<span class="sd">    &gt;&gt;&gt; # Load data. Refer to http://www-personal.umich.edu/~mejn/netdata/ for the details of datasets</span>
+<span class="sd">    &gt;&gt;&gt; tg = gt.load_graph(&#39;./data/dolphin.xml.gz&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; bg = gt.load_graph(&#39;./data/karate.xml.gz&#39;)</span>
+
+<span class="sd">    &gt;&gt;&gt; # Prepare network representation learning method</span>
+<span class="sd">    &gt;&gt;&gt; nrl = DeepGL(base_feat_defs=[</span>
+<span class="sd">    ...     &#39;total_degree&#39;, &#39;betweenness&#39;, &#39;closeness&#39;, &#39;eigenvector&#39;, &#39;pagerank&#39;,</span>
+<span class="sd">    ...     &#39;katz&#39;</span>
+<span class="sd">    ... ],</span>
+<span class="sd">    ...              rel_feat_ops=[&#39;mean&#39;, &#39;sum&#39;, &#39;maximum&#39;, &#39;lp_norm&#39;],</span>
+<span class="sd">    ...              nbr_types=[&#39;all&#39;],</span>
+<span class="sd">    ...              ego_dist=3,</span>
+<span class="sd">    ...              lambda_value=0.7)</span>
+
+<span class="sd">    &gt;&gt;&gt; # Prepare contrastive learning method</span>
+<span class="sd">    &gt;&gt;&gt; cl = CPCA()</span>
+
+<span class="sd">    &gt;&gt;&gt; # Set network representation and contrastive learning methods</span>
+<span class="sd">    &gt;&gt;&gt; # using DeepGL and cPCA is i-cNRL (interpretable cNRL)</span>
+<span class="sd">    &gt;&gt;&gt; cnrl = CNRL(nrl, cl)</span>
+
+<span class="sd">    &gt;&gt;&gt; # Learning</span>
+<span class="sd">    &gt;&gt;&gt; cnrl.fit(tg, bg)</span>
+
+<span class="sd">    &gt;&gt;&gt; # Obtain results for plotting</span>
+<span class="sd">    &gt;&gt;&gt; tg_feat_mat = preprocessing.scale(cnrl.tg_feat_mat)</span>
+<span class="sd">    &gt;&gt;&gt; bg_feat_mat = preprocessing.scale(cnrl.bg_feat_mat)</span>
+<span class="sd">    &gt;&gt;&gt; tg_emb = cnrl.transform(feat_mat=tg_feat_mat)</span>
+<span class="sd">    &gt;&gt;&gt; bg_emb = cnrl.transform(feat_mat=bg_feat_mat)</span>
+
+<span class="sd">    &gt;&gt;&gt; feat_defs = cnrl.feat_defs</span>
+<span class="sd">    &gt;&gt;&gt; fc_cpca = cnrl.loadings</span>
+<span class="sd">    &gt;&gt;&gt; fc_cpca_max = abs(fc_cpca).max()</span>
+<span class="sd">    &gt;&gt;&gt; if fc_cpca_max == 0:</span>
+<span class="sd">    ...     fc_cpca_max = 1</span>
+<span class="sd">    &gt;&gt;&gt; fc_cpca /= fc_cpca_max</span>
+
+<span class="sd">    &gt;&gt;&gt; # Plot</span>
+<span class="sd">    &gt;&gt;&gt; # Plot 1: Embedding result</span>
+<span class="sd">    &gt;&gt;&gt; plt.figure(figsize=(6, 6))</span>
+<span class="sd">    &gt;&gt;&gt; plt.scatter(tg_emb[:, 0], tg_emb[:, 1], c=&#39;orange&#39;, s=10)</span>
+<span class="sd">    &gt;&gt;&gt; plt.scatter(bg_emb[:, 0], bg_emb[:, 1], c=&#39;green&#39;, s=10)</span>
+<span class="sd">    &gt;&gt;&gt; plt.legend([&#39;target&#39;, &#39;background&#39;])</span>
+<span class="sd">    &gt;&gt;&gt; plt.title(&quot;cPCA&quot;)</span>
+
+<span class="sd">    &gt;&gt;&gt; # Plot 2: feature contributions</span>
+<span class="sd">    &gt;&gt;&gt; fig, ax = plt.subplots(figsize=(6, 6))</span>
+<span class="sd">    &gt;&gt;&gt; im = ax.imshow(fc_cpca, cmap=&#39;coolwarm&#39;, aspect=&#39;auto&#39;, vmin=-1, vmax=1)</span>
+<span class="sd">    &gt;&gt;&gt; # plot feature names</span>
+<span class="sd">    &gt;&gt;&gt; ax.set_yticks(np.arange(len(feat_defs)))</span>
+<span class="sd">    &gt;&gt;&gt; ax.yaxis.tick_right()</span>
+<span class="sd">    &gt;&gt;&gt; ax.set_yticklabels(feat_defs, fontsize=12)</span>
+<span class="sd">    &gt;&gt;&gt; # plot col names</span>
+<span class="sd">    &gt;&gt;&gt; xlabel_names = [&quot;cPC 1&quot;, &quot;cPC 2&quot;]</span>
+<span class="sd">    &gt;&gt;&gt; ax.set_xticks(np.arange(len(xlabel_names)))</span>
+<span class="sd">    &gt;&gt;&gt; ax.set_xticklabels(xlabel_names)</span>
+<span class="sd">    &gt;&gt;&gt; xlbls = ax.get_xticklabels()</span>
+<span class="sd">    &gt;&gt;&gt; plt.setp(xlbls)</span>
+<span class="sd">    &gt;&gt;&gt; plt.tight_layout()</span>
+
+<span class="sd">    &gt;&gt;&gt; plt.show()</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">nw_learner</span><span class="p">,</span>
+                 <span class="n">contrast_learner</span><span class="p">,</span>
+                 <span class="n">thres_corr_cl_feats</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                 <span class="n">scaling_cl_inputs</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nw_learner</span> <span class="o">=</span> <span class="n">nw_learner</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span> <span class="o">=</span> <span class="n">contrast_learner</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">thres_corr_cl_feats</span> <span class="o">=</span> <span class="n">thres_corr_cl_feats</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaling_cl_inputs</span> <span class="o">=</span> <span class="n">scaling_cl_inputs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tg_feat_mat</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bg_feat_mat</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feat_defs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loadings</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">components</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="CNRL.fit_transform"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL.fit_transform">[docs]</a>    <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tg_nw</span><span class="p">,</span> <span class="n">bg_nw</span><span class="p">,</span> <span class="o">**</span><span class="n">contrast_learner_kwargs</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Apply fit ant transform to target and background networks.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tg_nw: network object</span>
+<span class="sd">            Target network that can be handled by nw_learner. For example,</span>
+<span class="sd">            if nw_learner is DeepGL (https://github.com/takanori-fujiwara/deepgl),</span>
+<span class="sd">            tg_nw must be a graph-tool&#39;s graph object.</span>
+<span class="sd">        bg_nw: network object</span>
+<span class="sd">            Background network that can be handled by nw_learner.</span>
+<span class="sd">        contrast_learner_kwargs: keyword arguments</span>
+<span class="sd">            Keyword arguments used for contrast_learner. For example, if</span>
+<span class="sd">            contrast_learner is cPCA (https://github.com/takanori-fujiwara/ccpca),</span>
+<span class="sd">            auto_alpha_selection=False, alpha=100, etc. can be used.</span>
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        embedding_result: ndarray, shape(n_nodes, n_components)</span>
+<span class="sd">            Contrastive embedding result.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">learn_nw_repr</span><span class="p">(</span><span class="n">tg_nw</span><span class="p">,</span> <span class="n">bg_nw</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">learn_contrast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tg_feat_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bg_feat_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">feat_defs</span><span class="p">,</span>
+                            <span class="o">**</span><span class="n">contrast_learner_kwargs</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;CCPCA&#39;</span><span class="p">:</span>
+            <span class="n">concat_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">tg_feat_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bg_feat_mat</span><span class="p">))</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">feat_mat</span><span class="o">=</span><span class="n">concat_mat</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">feat_mat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tg_feat_mat</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="CNRL.fit"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tg_nw</span><span class="p">,</span> <span class="n">bg_nw</span><span class="p">,</span> <span class="o">**</span><span class="n">contrast_learner_kwargs</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Apply fit  to target and background networks.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tg_nw: network object</span>
+<span class="sd">            Target network that can be handled by nw_learner. For example,</span>
+<span class="sd">            if nw_learner is DeepGL (https://github.com/takanori-fujiwara/deepgl),</span>
+<span class="sd">            tg_nw must be a graph-tool&#39;s graph object.</span>
+<span class="sd">        bg_nw: network object</span>
+<span class="sd">            Background network that can be handled by nw_learner.</span>
+<span class="sd">        contrast_learner_kwargs: keyword arguments</span>
+<span class="sd">            Keyword arguments used for contrast_learner. For example, if</span>
+<span class="sd">            contrast_learner is cPCA (https://github.com/takanori-fujiwara/ccpca),</span>
+<span class="sd">            auto_alpha_selection=False, alpha=100, etc. can be used.</span>
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        self</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">learn_nw_repr</span><span class="p">(</span><span class="n">tg_nw</span><span class="p">,</span> <span class="n">bg_nw</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">learn_contrast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tg_feat_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bg_feat_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">feat_defs</span><span class="p">,</span>
+                            <span class="o">**</span><span class="n">contrast_learner_kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="CNRL.transform"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL.transform">[docs]</a>    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feat_mat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nw</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Apply transform to a network or a network feature matrix</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        feat_mat: array_like, shape(n_node, n_network_features), optional (default=None)</span>
+<span class="sd">            Network feature matrix that contains the same feature set with the</span>
+<span class="sd">            learned feature matrix by fitting with nw_learner. If None, produce</span>
+<span class="sd">            a network feature matrix from nw (input network) and then use it as</span>
+<span class="sd">            feat_mat.</span>
+<span class="sd">        nw: network object</span>
+<span class="sd">            If feat_mat is None and nw is not None, produce a network feature</span>
+<span class="sd">            matrix from nw and then use it as feat_mat.</span>
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        embedding_result: ndarray, shape(n_nodes, n_components)</span>
+<span class="sd">            Contrastive embedding result.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">feat_mat</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">nw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">feat_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nw_learner</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">nw</span><span class="p">,</span>
+                                                 <span class="n">diffusion_iter</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                                                 <span class="n">transform_method</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">feat_mat</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="CNRL.learn_nw_repr"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL.learn_nw_repr">[docs]</a>    <span class="k">def</span> <span class="nf">learn_nw_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tg_nw</span><span class="p">,</span> <span class="n">bg_nw</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Apply network representation learning.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tg_nw: network object</span>
+<span class="sd">            Target network that can be handled by nw_learner. For example,</span>
+<span class="sd">            if nw_learner is DeepGL (https://github.com/takanori-fujiwara/deepgl),</span>
+<span class="sd">            tg_nw must be a graph-tool&#39;s graph object.</span>
+<span class="sd">        bg_nw: network object</span>
+<span class="sd">            Background network that can be handled by nw_learner.</span>
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        self</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nw_learner</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">tg_nw</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tg_feat_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nw_learner</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">tg_nw</span><span class="p">,</span>
+                                                     <span class="n">diffusion_iter</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                                                     <span class="n">transform_method</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bg_feat_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nw_learner</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">bg_nw</span><span class="p">,</span>
+                                                     <span class="n">diffusion_iter</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                                                     <span class="n">transform_method</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feat_defs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nw_learner</span><span class="o">.</span><span class="n">get_feat_defs</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="CNRL.learn_contrast"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL.learn_contrast">[docs]</a>    <span class="k">def</span> <span class="nf">learn_contrast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tg_feat_mat</span><span class="p">,</span> <span class="n">bg_feat_mat</span><span class="p">,</span> <span class="n">feat_defs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Apply contrastive learning.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tg_feat_mat: array_like, shape(n_nodes, n_network_features)</span>
+<span class="sd">            Target network&#39;s feature matrix obtained via network representation</span>
+<span class="sd">            learning.</span>
+<span class="sd">        bg_feat_mat: array_like, shape(n_nodes, n_network_features)</span>
+<span class="sd">            Target network&#39;s feature matrix obtained via network representation</span>
+<span class="sd">            learning.</span>
+<span class="sd">        feat_defs: list of strings</span>
+<span class="sd">            Learned features&#39; definitions by network representation learning.</span>
+<span class="sd">        kwargs: keyword arguments</span>
+<span class="sd">            Keyword arguments used for contrast_learner. For example, if</span>
+<span class="sd">            contrast_learner is cPCA (https://github.com/takanori-fujiwara/ccpca),</span>
+<span class="sd">            auto_alpha_selection=False, alpha=100, etc. can be used.</span>
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        self</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">thres_corr_cl_feats</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">corr_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">tg_feat_mat</span><span class="p">,</span> <span class="n">rowvar</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">corr_mat</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">high_correlated</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">corr_mat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">thres_corr_cl_feats</span>
+            <span class="n">n_feats</span> <span class="o">=</span> <span class="n">high_correlated</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">keeping_feat_indices</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_feats</span><span class="p">)]</span>
+
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_feats</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">n_feats</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">high_correlated</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+                        <span class="n">keeping_feat_indices</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="n">tg_feat_mat</span> <span class="o">=</span> <span class="n">tg_feat_mat</span><span class="p">[:,</span> <span class="n">keeping_feat_indices</span><span class="p">]</span>
+            <span class="n">bg_feat_mat</span> <span class="o">=</span> <span class="n">bg_feat_mat</span><span class="p">[:,</span> <span class="n">keeping_feat_indices</span><span class="p">]</span>
+            <span class="n">feat_defs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">feat_defs</span><span class="p">)[</span><span class="n">keeping_feat_indices</span><span class="p">])</span>
+            <span class="c1"># TODO: avoid using copy</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tg_feat_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">tg_feat_mat</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bg_feat_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">bg_feat_mat</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">feat_defs</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">feat_defs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_cl_inputs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">tg_feat_mat</span><span class="p">),</span>
+                                      <span class="n">preprocessing</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">bg_feat_mat</span><span class="p">),</span>
+                                      <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">tg_feat_mat</span><span class="p">,</span> <span class="n">bg_feat_mat</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loadings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span><span class="o">.</span><span class="n">get_loadings</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">components</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span><span class="o">.</span><span class="n">get_components</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="CNRL.set_nw_learner"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL.set_nw_learner">[docs]</a>    <span class="k">def</span> <span class="nf">set_nw_learner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nw_learner</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Set a network representation learning method</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        nw_learner: network representation learning object</span>
+<span class="sd">            A network representation learning object for the network representation</span>
+<span class="sd">            learning step. nw_learner must have fit, transform, get_feat_defs</span>
+<span class="sd">            methods, such as DeepGL in https://github.com/takanori-fujiwara/deepgl</span>
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        self</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nw_learner</span> <span class="o">=</span> <span class="n">nw_learner</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="CNRL.set_contrast_learner"><a class="viewcode-back" href="../cnrl.html#cnrl.CNRL.set_contrast_learner">[docs]</a>    <span class="k">def</span> <span class="nf">set_contrast_learner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">contrast_learner</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Set a contrastive learning method</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        contrast_learner: contrastive learning object</span>
+<span class="sd">            A contrastive learning object for the contrastive learning step.</span>
+<span class="sd">            contrast_learner must have fit, transform, get_loadings(), and</span>
+<span class="sd">            get_components(), such as cPCA and ccPCA in</span>
+<span class="sd">            https://github.com/takanori-fujiwara/ccpca.</span>
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        self</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">contrast_learner</span> <span class="o">=</span> <span class="n">contrast_learner</span>
+        <span class="k">return</span> <span class="bp">self</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Takanori Fujiwara
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

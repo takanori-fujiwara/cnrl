@@ -26,7 +26,7 @@ nrl = DeepGL(base_feat_defs=[
              lambda_value=0.7)
 
 # Prepare contrastive learning method
-cl = CCPCA()
+cl = CPCA()
 
 # Set network representation and contrastive learning methods
 # using DeepGL and cPCA is i-cNRL (interpretable cNRL)
