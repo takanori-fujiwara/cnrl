@@ -15,7 +15,7 @@ Requirements
 * To run sample.py, also ccPCA and DeepGL.
   * ccPCA: https://github.com/takanori-fujiwara/ccpca
   * DeepGL: https://github.com/takanori-fujiwara/deepgl
-* Note: Tested on macOS Catalina and Ubuntu 20.0.4 LTS.
+* Note: Tested on macOS Ventura and Ubuntu 20.0.4 LTS.
 ******
 
 Setup
