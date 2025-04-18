@@ -3,7 +3,7 @@
 About
 -----
 * Python3 implemetation of cNRL from Fujiwara et al., 2022.
-  * Fujiwara et al., Network Comparison with Interpretable Contrastive Network Representation Learning, Journal of Data Science, Statistics, and Visualisation, forthcoming (arXiv:2005.12419).
+  * Fujiwara et al., Network Comparison with Interpretable Contrastive Network Representation Learning, Journal of Data Science, Statistics, and Visualisation, Vol. 2, No. 5, 35 pages, 2022.
 ******
 
 Requirements
@@ -12,10 +12,11 @@ Requirements
 * OS: macOS or Linux
   * Note: cNRL itself is available from Windows but DeepGL used in the above paper is not available from Windows.
 
-* To run sample.py, also ccPCA and DeepGL.
+* To run sample.py, also ccPCA, DeepGL, and matplotlib.
   * ccPCA: https://github.com/takanori-fujiwara/ccpca
   * DeepGL: https://github.com/takanori-fujiwara/deepgl
-* Note: Tested on macOS Ventura and Ubuntu 20.0.4 LTS.
+  * matplotlib: `pip3 install matplotlib`
+* Note: Tested on macOS Sequoia and Ubuntu 20.0.4 LTS.
 ******
 
 Setup
@@ -37,7 +38,7 @@ Usage
 How to Cite
 -----
 Please cite:
-Fujiwara et al., Network Comparison with Interpretable Contrastive Network Representation Learning. Journal of Data Science, Statistics, and Visualisation, forthcoming (arXiv:2005.12419).
+Fujiwara et al., Network Comparison with Interpretable Contrastive Network Representation Learning. Journal of Data Science, Statistics, and Visualisation, , Vol. 2, No. 5, 35 pages, 2022.
 
 Also, there is one more closely related work:
 Fujiwara et al., A Visual Analytics Framework for Contrastive Network Analysis. In Proc. IEEE Conference on Visual Analytics Science and Technology (VAST), 2020.
